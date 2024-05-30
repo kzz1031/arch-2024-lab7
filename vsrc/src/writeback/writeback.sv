@@ -13,6 +13,7 @@ module writeback
         input logic rst,
         input logic memory_valid,
         input u64 reg_memory_ALU_data_out,
+        input u64 reg_memory_csr_data_out,
         input u64 reg_memory_data_out,
         input u64 reg_memory_pc,
         input u32 reg_memory_ins,
@@ -22,6 +23,7 @@ module writeback
         output logic reg_writeback_reg_w,
         output logic writeback_valid,
         output u64 reg_writeback_data,
+        output u64 reg_writeback_csr_data_out,
         output u5 reg_writeback_rd
 );
 OPC op;
@@ -31,6 +33,7 @@ always_ff @( posedge clk ) begin
         reg_writeback_rd <= reg_memory_rd;
         writeback_valid  <= 1;
         reg_writeback_reg_w <= reg_memory_reg_w;
+        reg_writeback_csr_data_out <= reg_memory_csr_data_out;
         if(op == JAL || op == JALR ) reg_writeback_data <= reg_memory_pc+4;
         else if(reg_memory_mem_r) reg_writeback_data <= reg_memory_data_out;
         else reg_writeback_data <= reg_memory_ALU_data_out;

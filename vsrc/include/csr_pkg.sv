@@ -79,6 +79,7 @@ package csr_pkg;
 		u3 func3;
 		u5 rd;
 		logic csr_w;
+		u64 t;
 	} csr_decode;
 endpackage
 

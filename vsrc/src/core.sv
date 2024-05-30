@@ -3,7 +3,7 @@
 
 `ifdef VERILATOR
 `include "include/common.sv"
-`include "include/csr.sv"
+`include "include/csr_pkg.sv"
 `include "src/fetch/fetch.sv"
 `include "src/decode/decode.sv"
 `include "src/execute/execute.sv"
@@ -28,13 +28,20 @@ logic 	    memory_valid,memory_stall;
 logic       execute_valid,reg_execute_zero_flag,reg_execute_sig,reg_execute_reg_w;
 logic       execute_stall;
 u64 		reg_execute_data_out,reg_execute_pc,reg_execute_rd2;
+u64 		reg_execute_csr_data_out,reg_memory_csr_data_out,reg_writeback_csr_data_out;
 u64 		reg_writeback_data;
 u5 			reg_writeback_rd;
 logic 		writeback_valid,reg_writeback_reg_w;
 logic signed [63 : 0] reg_offset;
 
-csr_regs_t csr_regs;
+csr_regs_t csr_regs,csr_regs_next;
 csr_decode csr_inf;
+logic is_csr;
+u2 prvmode;
+
+always_ff @( posedge clk ) begin
+	if(reset) prvmode <= 3;
+end
 
 always_comb begin
     if (reg_writeback_reg_w)	RF_next[reg_writeback_rd] = reg_writeback_data;
@@ -101,8 +108,14 @@ decode decode(.clk          	(clk),
 			  .reg_decode_rd	(reg_decode_rd),
 			  .reg_offset		(reg_offset),
 			  .reg_writeback_data(reg_writeback_data),
+			  .reg_writeback_csr_data_out(reg_writeback_csr_data_out),
 			  .reg_writeback_rd	(reg_writeback_rd),
+
 			  .csr_inf			(csr_inf),
+			  .csr_regs_next	(csr_regs_next),
+			  .csr_regs			(csr_regs),
+
+			  .is_csr			(is_csr),
 			  .w_en				(reg_writeback_reg_w),
 			  .RF				(RF),
 			  .decode_stall		(decode_stall),
@@ -134,6 +147,7 @@ execute	execute(.clk					(clk),
 				.execute_valid			(execute_valid),
 				.reg_execute_msize		(reg_execute_msize),
 				.reg_execute_data_out	(reg_execute_data_out),
+				.reg_execute_csr_data_out(reg_execute_csr_data_out),
 				.reg_execute_zero_flag	(reg_execute_zero_flag),
 				.reg_execute_mem_r		(reg_execute_mem_r),
 				.reg_execute_mem_w		(reg_execute_mem_w),
@@ -143,6 +157,7 @@ execute	execute(.clk					(clk),
 				.reg_execute_rd2		(reg_execute_rd2),
 				.reg_execute_pc			(reg_execute_pc),
 				.execute_stall			(execute_stall),
+				.csr_inf				(csr_inf),
 				.stall					(memory_stall)
 				);
 
@@ -167,6 +182,7 @@ memory memory(
 	.reg_execute_pc			(reg_execute_pc),
 	.reg_execute_msize		(reg_execute_msize),
 	.reg_execute_sig		(reg_execute_sig),
+	.reg_execute_csr_data_out(reg_execute_csr_data_out),
 	.reg_memory_reg_w		(reg_memory_reg_w),
 	.reg_memory_mem_r		(reg_memory_mem_r),
 	.reg_memory_mem_w		(reg_memory_mem_w),
@@ -176,6 +192,7 @@ memory memory(
 	.reg_memory_ALU_data_out(reg_memory_ALU_data_out),
 	.reg_memory_addr		(reg_memory_addr),
 	.reg_memory_rd			(reg_memory_rd),
+	.reg_memory_csr_data_out(reg_memory_csr_data_out),
 	.execute_valid			(execute_valid),
 	.memory_valid			(memory_valid),
 	.memory_stall			(memory_stall)
@@ -187,6 +204,7 @@ writeback writeback(
 	.rst					(reset),
 	.memory_valid			(memory_valid),
 	.reg_memory_ALU_data_out(reg_memory_ALU_data_out),
+	.reg_memory_csr_data_out(reg_memory_csr_data_out),
 	.reg_memory_data_out	(reg_memory_data_out),
 	.reg_memory_rd			(reg_memory_rd),
 	.reg_memory_reg_w		(reg_memory_reg_w),
@@ -195,6 +213,7 @@ writeback writeback(
 	.reg_memory_mem_r		(reg_memory_mem_r),
 	.reg_writeback_data		(reg_writeback_data),
 	.reg_writeback_rd		(reg_writeback_rd),
+	.reg_writeback_csr_data_out(reg_writeback_csr_data_out),
 	.writeback_valid		(writeback_valid),
 	.reg_writeback_reg_w	(reg_writeback_reg_w)
 );
@@ -265,21 +284,21 @@ writeback writeback(
 	DifftestCSRState DifftestCSRState(
 		.clock              (clk),
 		.coreid             (0),
-		.priviledgeMode     (3),
-		.mstatus            (0),
-		.sstatus            (0 /* mstatus & 64'h800000030001e000 */),
-		.mepc               (0),
+		.priviledgeMode     (prvmode),
+		.mstatus            (csr_regs_next.mstatus),
+		.sstatus            (csr_regs_next.mstatus & 64'h800000030001e000),
+		.mepc               (csr_regs_next.mepc),
 		.sepc               (0),
-		.mtval              (0),
+		.mtval              (csr_regs_next.mtval),
 		.stval              (0),
-		.mtvec              (0),
+		.mtvec              (csr_regs_next.mtvec),
 		.stvec              (0),
-		.mcause             (0),
+		.mcause             (csr_regs_next.mcause),
 		.scause             (0),
 		.satp               (0),
-		.mip                (0),
+		.mip                (csr_regs_next.mip),
 		.mie                (0),
-		.mscratch           (0),
+		.mscratch           (csr_regs_next.mscratch),
 		.sscratch           (0),
 		.mideleg            (0),
 		.medeleg            (0)

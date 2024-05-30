@@ -3,9 +3,10 @@
 
 `ifdef VERILATOR
 `include "include/common.sv"
-`include "include/csr.sv"
+`include "include/csr_pkg.sv"
 `include "src/decode/immediate_generator.sv"
 `include "src/decode/register_file.sv"
+`include "src/csr/csr.sv"
 `else
 
 `endif 
@@ -20,6 +21,7 @@ module decode
     input u5 reg_writeback_rd,
     input logic w_en,
     input u64   reg_writeback_data,
+    input u64   reg_writeback_csr_data_out,
     input logic stall,
 
     output u32 reg_busy,
@@ -31,8 +33,12 @@ module decode
     output logic ctrl_reg_w,ctrl_mem_r,ctrl_mem_w,ctrl_mem_to_reg,
 
     output csr_decode csr_inf,
+    output csr_regs_t    csr_regs,
+    output csr_regs_t    csr_regs_next,
 
     output logic is_word,
+    output logic is_csr,
+
     output logic ctrl_branch,
     output msize_t reg_decode_msize,
     output logic reg_decode_sig,
@@ -42,7 +48,9 @@ module decode
     output u64 reg_offset,reg_decode_pc,
     output logic decode_stall
 );
-u64 read_data_rs1,read_data_rs2,offset;
+
+u64 read_data_rs1,read_data_rs2,offset,csr_rd;
+
 register_file register_file(
     .clk			    (clk),
     .rst			    (rst),
@@ -51,10 +59,20 @@ register_file register_file(
     .reg_w			    (reg_writeback_rd),
 	.read_data_rs1      (read_data_rs1),
     .read_data_rs2      (read_data_rs2),
-    .w_data			    (reg_writeback_data),
+    .w_data			    (csr_inf.csr_w ? csr_inf.t : reg_writeback_data),
     .w_en               (w_en),
 	.RF				    (RF));
 
+csr csr(
+    .clk            (clk),
+    .rst            (rst),
+    .csr            (reg_fetch_ins[31:20]),
+    .csr_regs       (csr_regs),
+    .csr_regs_next  (csr_regs_next),
+    .csr_rd         (csr_rd),
+    .csr_wd         (reg_writeback_csr_data_out),
+    .w_en           (w_en & csr_inf.csr_w)
+);
 immediate_generator immediate_generator(
     .ins			(reg_fetch_ins),
     .offset			(offset));
@@ -67,6 +85,7 @@ always_ff @( posedge clk ) begin
     if(rst) begin
         decode_stall <= 0;
         decode_valid <= 0; 
+        is_csr       <= 0;   
     end 
     if( decode_stall & (!stall) & !(reg_busy[rs1] || reg_busy[rs2] )) begin
         decode_stall <= 0;
@@ -113,6 +132,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b1;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
         
         STORE:
@@ -125,6 +145,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
 
         ARITH:
@@ -138,6 +159,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
 
         BRANCH:
@@ -150,6 +172,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b1;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
         LUI :
         begin
@@ -162,6 +185,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
         OPI :
         begin
@@ -174,6 +198,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
         AUIPC :
         begin 
@@ -186,6 +211,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
         JAL :
         begin 
@@ -198,6 +224,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b1;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
         JALR :
         begin 
@@ -210,6 +237,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b1;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
         ARITHW:
         begin            
@@ -222,6 +250,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b1;
+            is_csr          <= 1'b0;
         end
         OPIW :
         begin
@@ -234,14 +263,17 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b1;
+            is_csr          <= 1'b0;
         end
         CSR :
         begin
-            ctrl_reg_w    <= 1'b1;
-            csr_inf.csr_w <= 1'b1;
-            csr_inf.csr   <= reg_fetch_ins[31:20];
-            csr_inf.func3 <= reg_fetch_ins[14:12];
-            csr_inf.rs1   <= reg_fetch_ins[19:15];
+            ctrl_reg_w      <= 1'b1;
+            csr_inf.csr_w   <= 1'b1;
+            csr_inf.csr     <= reg_fetch_ins[31:20];
+            csr_inf.func3   <= reg_fetch_ins[14:12];
+            csr_inf.rs1     <= reg_fetch_ins[19:15];
+            csr_inf.t       <= csr_rd;
+            is_csr          <= 1'b1;
         end
         default:
         begin
@@ -253,6 +285,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
+            is_csr          <= 1'b0;
         end
     endcase   
     end

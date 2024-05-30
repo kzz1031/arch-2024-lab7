@@ -3,8 +3,10 @@
 
 `ifdef VERILATOR
 `include "include/common.sv"
+`include "include/csr_pkg.sv"
 `include "src/execute/ALU_control.sv"
 `include "src/execute/ALU.sv"
+`include "src/execute/ALU_csr.sv"
 `include "src/execute/data_a_select.sv"
 `include "src/execute/divide.sv"
 `include "src/execute/multiply.sv"
@@ -12,7 +14,8 @@
 
 `endif 
 module execute
-    import common::*;(
+    import common::*;
+    import csr_pkg::*;(
     input logic clk,
     input logic rst,
     input logic decode_valid,
@@ -29,20 +32,22 @@ module execute
     input logic ctrl_mem_r,ctrl_mem_w,ctrl_reg_w,
     input logic stall,
 
+    input csr_decode csr_inf,
+
     output logic reg_execute_mem_r,reg_execute_mem_w,reg_execute_reg_w,
     output u32 reg_execute_ins,
     output msize_t reg_execute_msize,
     output logic reg_execute_sig,
     output logic execute_valid,
     output u64  reg_execute_rd2,
-    output u64 reg_execute_data_out,reg_execute_pc,
+    output u64 reg_execute_data_out,reg_execute_pc,reg_execute_csr_data_out,
     output logic reg_execute_zero_flag,
     output u5  reg_execute_rd,
     output logic execute_stall
 );
 
 ALU_CTR ALU_ctrl;
-u64 ALU_data_out,data_a;
+u64 ALU_data_out,data_a, csr_data_out;
 logic mul_end,mul_valid,divide_end,divide_valid,ALU_zero_flag;
 u64 multiply_data_out,divide_data_out,remain;
 BRA take_branch;
@@ -60,6 +65,7 @@ always_ff @( posedge clk ) begin
         reg_execute_msize <= reg_decode_msize;
         reg_execute_sig   <= reg_decode_sig;
         reg_execute_zero_flag <= ALU_zero_flag;
+        reg_execute_csr_data_out  <= csr_data_out;
     end
     if( execute_valid ) execute_valid <= 0;
     else if(ALU_ctrl == MUL || ALU_ctrl == DIV || ALU_ctrl == DIVU || ALU_ctrl == REM || ALU_ctrl == REMU) begin
@@ -102,6 +108,14 @@ ALU ALU(
 	.take_branch    (take_branch),
 	.is_word		(is_word),
     .ALU_ctrl		(ALU_ctrl));
+
+ALU_csr ALU_csr(
+    .t              (csr_inf.t),
+    .zimm           (reg_offset),
+    .rd1            (reg_decode_rd1),
+    .func3          (csr_inf.func3),
+    .csr_data_out   (csr_data_out)
+);
 
 multiply multiply(
 	.clk			(clk),

@@ -14,6 +14,7 @@ module memory
         input logic rst,
         input logic execute_valid,
         input u64 reg_execute_data_out,
+        input u64 reg_execute_csr_data_out,
         output dbus_req_t dreq,
         input dbus_resp_t dresp,
         input logic reg_execute_mem_r,reg_execute_mem_w,
@@ -31,6 +32,7 @@ module memory
         output logic memory_valid,
         output u5 reg_memory_rd,
         output u64 reg_memory_ALU_data_out,
+        output u64 reg_memory_csr_data_out,
         output u64 reg_memory_addr,
         output logic memory_stall
 );
@@ -64,6 +66,7 @@ always_ff @( posedge clk ) begin
         reg_memory_ins <= reg_execute_ins; 
         reg_memory_mem_r<= reg_execute_mem_r;
         reg_memory_ALU_data_out <= reg_execute_data_out;
+        reg_memory_csr_data_out <= reg_execute_csr_data_out;
         reg_memory_reg_w <= reg_execute_reg_w;
         reg_memory_mem_w <= reg_execute_mem_w;
         end 

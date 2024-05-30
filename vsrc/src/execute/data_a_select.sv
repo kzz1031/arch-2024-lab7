@@ -14,9 +14,9 @@ module data_a_select
         output u64 data_a
 );
 always_comb begin
-	if(op == LUI) data_a = 0;
-		else if(op == AUIPC || op == JAL) data_a = pc;
-		else data_a = reg_read_data_0;
+	if(op == LUI || op == CSR) data_a = 0;
+	else if(op == AUIPC || op == JAL) data_a = pc;
+	else data_a = reg_read_data_0;
 end // data_a select
 endmodule
 `endif 
