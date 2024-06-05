@@ -32,11 +32,9 @@ u64 pc;
 logic delay,mmu_ok;
 u3 jud;
 assign ireq.valid = 1;
-assign ireq.addr = pc;
 OPC op;
 assign op = OPC'(reg_fetch_ins[6:0]);
-u64 addr;
-u32 mmu_data; 
+u64 addr,mmu_data; 
 
 fetch_mmu fetch_mmu(
     .clk        (clk),
@@ -56,12 +54,13 @@ always_ff @( posedge clk ) begin
         pc <= PCINIT;
         delay <= 0;     
     end 
-    if(delay & iresp.data_ok & reg_execute_pc == reg_fetch_pc) begin
+    if(delay & mmu_ok & reg_execute_pc == reg_fetch_pc) begin
         delay <= 0;
+
         if(op == JAL || op == JALR) pc <= pc_branch;
         else if(zero_flag) pc <= reg_fetch_pc + reg_offset;
     end
-    else if( iresp.data_ok & (!fetch_valid) & (!stall) & (!delay)) begin 
+    else if( mmu_ok & (!fetch_valid) & (!stall) & (!delay)) begin 
         reg_fetch_ins <= iresp.data;
         reg_fetch_pc  <= pc;    
         pc <= pc + 4;

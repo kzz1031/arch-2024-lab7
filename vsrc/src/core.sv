@@ -44,13 +44,15 @@ always_ff @( posedge clk ) begin
 end
 
 always_comb begin
-    if (reg_writeback_reg_w)	RF_next[reg_writeback_rd] = reg_writeback_data;
+	RF_next = RF;
+    if (reg_writeback_reg_w)	RF_next[reg_writeback_rd] = csr_inf.csr_w ? csr_inf.t : reg_writeback_data;
 	else                  		RF_next[reg_writeback_rd] = RF[reg_writeback_rd];
 end // RF_next
 
 u32 reg_fetch_ins;
 u64 reg_fetch_pc;
 logic fetch_valid;
+
 fetch fetch(.rst				(reset),
 			.clk				(clk),
 			.ireq				(ireq),
@@ -65,7 +67,9 @@ fetch fetch(.rst				(reset),
 			.zero_flag			(reg_execute_zero_flag),
 			.reg_execute_pc		(reg_execute_pc),
 			.execute_valid		(execute_valid),	
-			.stall				(execute_stall || memory_stall || decode_stall));
+			.stall				(execute_stall || memory_stall || decode_stall),
+			.satp				(csr_regs.satp),
+			.prvmode			(prvmode));
 
 logic [1:0] ctrl_ALU_op;
 logic       ctrl_ALU_src;
@@ -83,7 +87,6 @@ u64   		reg_decode_rd1,reg_decode_rd2;
 
 msize_t reg_decode_msize;
 
-u2 mode;
 decode decode(.clk          	(clk),
 			  .rst  			(reset),
 			  .reg_fetch_ins 	(reg_fetch_ins),
@@ -114,7 +117,7 @@ decode decode(.clk          	(clk),
 			  .csr_inf			(csr_inf),
 			  .csr_regs_next	(csr_regs_next),
 			  .csr_regs			(csr_regs),
-
+			  .prvmode			(prvmode),
 			  .is_csr			(is_csr),
 			  .w_en				(reg_writeback_reg_w),
 			  .RF				(RF),
@@ -195,7 +198,9 @@ memory memory(
 	.reg_memory_csr_data_out(reg_memory_csr_data_out),
 	.execute_valid			(execute_valid),
 	.memory_valid			(memory_valid),
-	.memory_stall			(memory_stall)
+	.memory_stall			(memory_stall),
+	.satp					(csr_regs.satp),
+	.prvmode				(prvmode)
 );
 
 
@@ -295,7 +300,7 @@ writeback writeback(
 		.stvec              (0),
 		.mcause             (csr_regs_next.mcause),
 		.scause             (0),
-		.satp               (0),
+		.satp               (csr_regs_next.satp),
 		.mip                (csr_regs_next.mip),
 		.mie                (0),
 		.mscratch           (csr_regs_next.mscratch),

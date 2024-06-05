@@ -80,6 +80,7 @@ package csr_pkg;
 		u5 rd;
 		logic csr_w;
 		u64 t;
+		logic mret;
 	} csr_decode;
 endpackage
 

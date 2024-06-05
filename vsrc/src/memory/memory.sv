@@ -23,6 +23,8 @@ module memory
         input u32 reg_execute_ins,
         input u64 reg_execute_pc,reg_execute_rd2,
         input logic reg_execute_reg_w,reg_execute_sig,
+        input u64 satp,
+        input u2 prvmode,
         output logic reg_memory_reg_w,
         output logic reg_memory_mem_w,
         output logic reg_memory_mem_r,
@@ -37,10 +39,8 @@ module memory
         output logic memory_stall
 );
 
-always_ff @( posedge clk ) begin
-    
-end
 u64 mem_store_data,mem_load_data;
+
 always_ff @( posedge clk ) begin
     if(rst) memory_stall <= 0;
     if(execute_valid && (reg_execute_mem_r || reg_execute_mem_w)) begin
@@ -52,8 +52,8 @@ always_ff @( posedge clk ) begin
         memory_stall <= 0;
         reg_memory_rd  <= reg_execute_rd; 
         reg_memory_ins <= reg_execute_ins; 
-        reg_memory_mem_r<= reg_execute_mem_r;
-        reg_memory_mem_w<= reg_execute_mem_w;
+        reg_memory_mem_r <= reg_execute_mem_r;
+        reg_memory_mem_w <= reg_execute_mem_w;
         reg_memory_ALU_data_out <= reg_execute_data_out;
         reg_memory_reg_w <= reg_execute_reg_w;
         reg_memory_pc <= reg_execute_pc;
@@ -64,7 +64,7 @@ always_ff @( posedge clk ) begin
         reg_memory_pc <= reg_execute_pc;
         reg_memory_rd  <= reg_execute_rd; 
         reg_memory_ins <= reg_execute_ins; 
-        reg_memory_mem_r<= reg_execute_mem_r;
+        reg_memory_mem_r <= reg_execute_mem_r;
         reg_memory_ALU_data_out <= reg_execute_data_out;
         reg_memory_csr_data_out <= reg_execute_csr_data_out;
         reg_memory_reg_w <= reg_execute_reg_w;

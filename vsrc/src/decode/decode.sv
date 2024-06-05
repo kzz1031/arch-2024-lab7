@@ -32,9 +32,10 @@ module decode
     output logic ctrl_ALU_src,
     output logic ctrl_reg_w,ctrl_mem_r,ctrl_mem_w,ctrl_mem_to_reg,
 
+    output u2         prvmode,
     output csr_decode csr_inf,
-    output csr_regs_t    csr_regs,
-    output csr_regs_t    csr_regs_next,
+    output csr_regs_t csr_regs,
+    output csr_regs_t csr_regs_next,
 
     output logic is_word,
     output logic is_csr,
@@ -71,7 +72,9 @@ csr csr(
     .csr_regs_next  (csr_regs_next),
     .csr_rd         (csr_rd),
     .csr_wd         (reg_writeback_csr_data_out),
-    .w_en           (w_en & csr_inf.csr_w)
+    .w_en           (w_en & csr_inf.csr_w),
+    .prvmode        (prvmode),
+    .mret           (csr_inf.mret)
 );
 immediate_generator immediate_generator(
     .ins			(reg_fetch_ins),
@@ -119,6 +122,7 @@ always_ff@( posedge clk ) begin
         reg_busy <= 0;
     end
     if(w_en) reg_busy[reg_writeback_rd] <= 0;
+    
     if( (fetch_valid & (!stall) & (!(reg_busy[rs1] || reg_busy[rs2]))) || (decode_stall & (!stall) & !(reg_busy[rs1] || reg_busy[rs2]))) 
         case (op)
         LOAD:
@@ -132,7 +136,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b1;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         
         STORE:
@@ -145,7 +149,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
 
         ARITH:
@@ -159,7 +163,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
 
         BRANCH:
@@ -172,7 +176,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b1;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         LUI :
         begin
@@ -185,7 +189,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         OPI :
         begin
@@ -198,7 +202,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         AUIPC :
         begin 
@@ -211,7 +215,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         JAL :
         begin 
@@ -224,7 +228,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b1;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         JALR :
         begin 
@@ -237,7 +241,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b1;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         ARITHW:
         begin            
@@ -250,7 +254,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b1;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         OPIW :
         begin
@@ -263,7 +267,7 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b1;
-            is_csr          <= 1'b0;
+            csr_inf.csr_w   <= 1'b0;
         end
         CSR :
         begin
@@ -273,7 +277,11 @@ always_ff@( posedge clk ) begin
             csr_inf.func3   <= reg_fetch_ins[14:12];
             csr_inf.rs1     <= reg_fetch_ins[19:15];
             csr_inf.t       <= csr_rd;
-            is_csr          <= 1'b1;
+            ctrl_branch     <= 1'b0;
+            ctrl_mem_w      <= 1'b0;
+            ctrl_mem_r      <= 1'b0;
+            csr_inf.mret    <= reg_fetch_ins == 32'b00110000001000000000000001110011;//0011000 00010 00000 000 00000 1110011
+            prvmode         <= reg_fetch_ins == 32'b00110000001000000000000001110011 ? csr_regs.mstatus.mpp : prvmode;
         end
         default:
         begin
@@ -285,7 +293,6 @@ always_ff@( posedge clk ) begin
             ctrl_mem_to_reg <= 1'b0;
             ctrl_branch     <= 1'b0;
             is_word         <= 1'b0;
-            is_csr          <= 1'b0;
         end
     endcase   
     end
