@@ -25,10 +25,10 @@ module fetch
     output ibus_req_t  ireq,
     output u32 reg_fetch_ins,
     output u64 reg_fetch_pc,
-    output logic fetch_valid
+    output logic fetch_valid,
+    output u64 pc
 );
 
-u64 pc;
 logic delay,mmu_ok;
 u3 jud;
 assign ireq.valid = 1;

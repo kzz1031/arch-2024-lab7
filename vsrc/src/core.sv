@@ -9,6 +9,7 @@
 `include "src/execute/execute.sv"
 `include "src/memory/memory.sv"
 `include "src/writeback/writeback.sv"
+`include "src/mmu/mmu.sv"
 `endif
 module core import common::*; 
 			import csr_pkg::*;(
@@ -50,8 +51,22 @@ always_comb begin
 end // RF_next
 
 u32 reg_fetch_ins;
-u64 reg_fetch_pc;
+u64 reg_fetch_pc,pc;
 logic fetch_valid;
+
+logic mmu_fetch_ok,mmu_memory_ok;
+
+mmu mmu(
+		.clk					(clk),
+		.rst					(reset),
+		.dreq					(dreq),
+		.dresp					(dresp),
+		.prvmode				(prvmode),
+		.satp					(csr_regs.satp),
+		.pc						(pc),
+		.mmu_fetch_ok			(mmu_fetch_ok),
+		.mmu_memory_ok			(mmu_memory_ok)
+);
 
 fetch fetch(.rst				(reset),
 			.clk				(clk),
@@ -69,7 +84,8 @@ fetch fetch(.rst				(reset),
 			.execute_valid		(execute_valid),	
 			.stall				(execute_stall || memory_stall || decode_stall),
 			.satp				(csr_regs.satp),
-			.prvmode			(prvmode));
+			.prvmode			(prvmode),
+			.pc					(pc));
 
 logic [1:0] ctrl_ALU_op;
 logic       ctrl_ALU_src;
