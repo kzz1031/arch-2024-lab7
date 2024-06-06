@@ -39,6 +39,7 @@ csr_regs_t csr_regs,csr_regs_next;
 csr_decode csr_inf;
 logic is_csr;
 u2 prvmode;
+u64 mmu_data;
 
 always_ff @( posedge clk ) begin
 	if(reset) prvmode <= 3;
@@ -64,8 +65,16 @@ mmu mmu(
 		.prvmode				(prvmode),
 		.satp					(csr_regs.satp),
 		.pc						(pc),
+		.strobe					(strobe),
+		.memory_busy			(memory_stall),
+		.mem_store_data			(mem_store_data),
+		.memory_addr            (reg_execute_data_out),
+		.memory_r				(reg_execute_mem_r),
+		.memory_w				(reg_execute_mem_w),
+		.msize					(reg_execute_msize),
 		.mmu_fetch_ok			(mmu_fetch_ok),
-		.mmu_memory_ok			(mmu_memory_ok)
+		.mmu_memory_ok			(mmu_memory_ok),
+		.mmu_data				(mmu_data)
 );
 
 fetch fetch(.rst				(reset),
@@ -85,7 +94,10 @@ fetch fetch(.rst				(reset),
 			.stall				(execute_stall || memory_stall || decode_stall),
 			.satp				(csr_regs.satp),
 			.prvmode			(prvmode),
-			.pc					(pc));
+			.pc					(pc),
+			.mmu_fetch_ok		(mmu_fetch_ok),
+			.mmu_data			(mmu_data)
+			);
 
 logic [1:0] ctrl_ALU_op;
 logic       ctrl_ALU_src;
@@ -182,8 +194,9 @@ execute	execute(.clk					(clk),
 
 logic 	reg_memory_mem_r,reg_memory_reg_w,reg_memory_mem_w;
 u64   	reg_memory_data_out;
-u64 	reg_memory_ALU_data_out,reg_memory_pc,reg_memory_addr;
+u64 	reg_memory_ALU_data_out,reg_memory_pc,reg_memory_addr, mem_store_data;
 u32 	reg_memory_ins;
+strobe_t strobe;
 u5		reg_memory_rd;
 
 memory memory(
@@ -216,7 +229,11 @@ memory memory(
 	.memory_valid			(memory_valid),
 	.memory_stall			(memory_stall),
 	.satp					(csr_regs.satp),
-	.prvmode				(prvmode)
+	.prvmode				(prvmode),
+	.strobe					(strobe),
+	.mem_store_data			(mem_store_data),
+	.mmu_data				(mmu_data),
+	.mmu_memory_ok			(mmu_memory_ok)
 );
 
 

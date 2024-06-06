@@ -22,6 +22,10 @@ module fetch
     input logic execute_valid,
     input u64 satp,
     input u2 prvmode,
+
+    input logic mmu_fetch_ok,
+    input u64 mmu_data,
+
     output ibus_req_t  ireq,
     output u32 reg_fetch_ins,
     output u64 reg_fetch_pc,
@@ -30,25 +34,24 @@ module fetch
 );
 
 logic delay,mmu_ok;
-u3 jud;
-assign ireq.valid = 1;
-assign ireq.addr = pc;
+
+// assign ireq.valid = 1;
+// assign ireq.addr = pc;
 OPC op;
 assign op = OPC'(reg_fetch_ins[6:0]);
-u64 addr;
-u32 mmu_data; 
+u64 addr; 
 
-fetch_mmu fetch_mmu(
-    .clk        (clk),
-    .rst        (rst),
-    .satp       (satp),
-    .ireq       (ireq),
-    .pc         (pc),
-    .iresp      (iresp),
-    .mmu_ok     (mmu_ok),
-    .mmu_data   (mmu_data),
-    .prvmode    (prvmode)
-);
+// fetch_mmu fetch_mmu(
+//     .clk        (clk),
+//     .rst        (rst),
+//     .satp       (satp),
+//     .ireq       (ireq),
+//     .pc         (pc),
+//     .iresp      (iresp),
+//     .mmu_ok     (mmu_ok),
+//     .mmu_data   (mmu_data),
+//     .prvmode    (prvmode)
+// );
 
 always_ff @( posedge clk ) begin
     if(rst) begin
@@ -56,13 +59,13 @@ always_ff @( posedge clk ) begin
         pc <= PCINIT;
         delay <= 0;     
     end 
-    if(delay & iresp.data_ok & reg_execute_pc == reg_fetch_pc) begin
+    if(delay & mmu_fetch_ok & reg_execute_pc == reg_fetch_pc) begin
         delay <= 0;
         if(op == JAL || op == JALR) pc <= pc_branch;
         else if(zero_flag) pc <= reg_fetch_pc + reg_offset;
     end
-    else if( iresp.data_ok & (!fetch_valid) & (!stall) & (!delay)) begin 
-        reg_fetch_ins <= iresp.data;
+    else if( mmu_fetch_ok & (!fetch_valid) & (!stall) & (!delay)) begin 
+        reg_fetch_ins <= (pc[2:0] == 0) ? mmu_data[31:0] : mmu_data[63:32];
         reg_fetch_pc  <= pc;    
         pc <= pc + 4;
         fetch_valid <= 1;
