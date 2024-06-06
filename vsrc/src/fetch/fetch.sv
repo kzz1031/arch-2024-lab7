@@ -41,17 +41,7 @@ OPC op;
 assign op = OPC'(reg_fetch_ins[6:0]);
 u64 addr; 
 
-// fetch_mmu fetch_mmu(
-//     .clk        (clk),
-//     .rst        (rst),
-//     .satp       (satp),
-//     .ireq       (ireq),
-//     .pc         (pc),
-//     .iresp      (iresp),
-//     .mmu_ok     (mmu_ok),
-//     .mmu_data   (mmu_data),
-//     .prvmode    (prvmode)
-// );
+
 
 always_ff @( posedge clk ) begin
     if(rst) begin
