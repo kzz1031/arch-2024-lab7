@@ -112,6 +112,7 @@ ALU ALU(
 ALU_csr ALU_csr(
     .t              (csr_inf.t),
     .zimm           (reg_offset),
+    .pc             (reg_decode_pc),
     .rd1            (reg_decode_rd1),
     .func3          (csr_inf.func3),
     .csr_data_out   (csr_data_out)

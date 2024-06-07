@@ -16,6 +16,8 @@ module csr
     input u64 csr_wd,
     input logic w_en,
     input logic mret,
+    input csr_decode csr_inf,
+    output u64 pc,
     output csr_regs_t   csr_regs_next,
     output csr_regs_t   csr_regs,
     output u2  prvmode,
@@ -28,12 +30,27 @@ module csr
 			csr_regs.mcause[1] <= 1'b1;
 			csr_regs.mepc[31] <= 1'b1;
         end
-        if(mret) begin
-            csr_regs.mstatus.mie <= csr_regs.mstatus.mpie;
-            csr_regs.mstatus.mpie <= 1;
-            csr_regs.mstatus.mpp <= 0;
-        end
         if(w_en) begin
+             if(csr_inf.mret) begin 
+                pc <= csr_regs.mepc;
+            end
+            else if(csr_inf.ecall) begin
+                pc <= csr_regs.mtvec;
+            end
+            if(csr_inf.mret) begin
+                csr_regs.mstatus.mie <= csr_regs.mstatus.mpie;
+                csr_regs.mstatus.mpie <= 1;
+                csr_regs.mstatus.mpp <= 0;
+                prvmode <= csr_regs.mstatus.mpp;
+            end
+            if(csr_inf.ecall) begin 
+                csr_regs.mepc <= csr_wd;
+                prvmode <= 2'b11;
+                csr_regs.mcause <= {60'b0, 4'b1000};
+                csr_regs.mstatus.mie <= 0;
+                csr_regs.mstatus.mpie <= csr_regs.mstatus.mie;
+                csr_regs.mstatus.mpp <= prvmode;
+            end
             unique case(csr)
                 CSR_MIE: csr_regs.mie <= csr_wd;
 			    CSR_MIP: csr_regs.mip <= csr_wd;
@@ -58,7 +75,13 @@ module csr
             csr_regs_next.mstatus.mpie = 1;
             csr_regs_next.mstatus.mpp = 0;
         end
-
+        if(csr_inf.ecall) begin
+            csr_regs_next.mstatus.mpp = prvmode;
+            csr_regs_next.mstatus.mie = 0;
+            csr_regs_next.mepc = csr_wd;
+            csr_regs_next.mcause = {60'b0, 4'b1000};
+            csr_regs_next.mstatus.mpie = csr_regs.mstatus.mie;
+        end
         unique case(csr)
             CSR_MIE: csr_rd = csr_regs.mie;
 			CSR_MIP: csr_rd = csr_regs.mip;

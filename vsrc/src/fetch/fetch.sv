@@ -3,12 +3,14 @@
 
 `ifdef VERILATOR
 `include "include/common.sv"
+`include "include/csr_pkg.sv"
 `include "src/fetch/fetch_mmu.sv"
 `else
 
 `endif 
 module fetch 
-    import common::*;(
+    import common::*;
+    import csr_pkg::*;(
     input logic rst,
     input logic clk,
     input  ibus_resp_t iresp,
@@ -20,17 +22,17 @@ module fetch
     input u64 reg_execute_pc,
     input logic decode_valid,
     input logic execute_valid,
-    input u64 satp,
-    input u2 prvmode,
-
+    
     input logic mmu_fetch_ok,
     input u64 mmu_data,
-
+    input csr_regs_t csr_regs,
+    input csr_decode csr_inf,
     output ibus_req_t  ireq,
     output u32 reg_fetch_ins,
     output u64 reg_fetch_pc,
     output logic fetch_valid,
-    output u64 pc
+    output u64 pc,
+    output u2 prvmode
 );
 
 logic delay,mmu_ok;
@@ -41,8 +43,6 @@ OPC op;
 assign op = OPC'(reg_fetch_ins[6:0]);
 u64 addr; 
 
-
-
 always_ff @( posedge clk ) begin
     if(rst) begin
         fetch_valid <= 0;
@@ -51,6 +51,12 @@ always_ff @( posedge clk ) begin
     end 
     if(delay & mmu_fetch_ok & reg_execute_pc == reg_fetch_pc) begin
         delay <= 0;
+        // if(csr_inf.mret) begin 
+        //     pc <= csr_regs.mepc;
+        // end
+        // else if(csr_inf.ecall) begin
+        //     pc <= csr_regs.mtvec;
+        // end
         if(op == JAL || op == JALR) pc <= pc_branch;
         else if(zero_flag) pc <= reg_fetch_pc + reg_offset;
     end

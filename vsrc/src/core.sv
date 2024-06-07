@@ -38,11 +38,16 @@ logic signed [63 : 0] reg_offset;
 csr_regs_t csr_regs,csr_regs_next;
 csr_decode csr_inf;
 logic is_csr;
-u2 prvmode;
+u2 prvmode, prvmode_nxt;
 u64 mmu_data;
 
 always_ff @( posedge clk ) begin
 	if(reset) prvmode <= 3;
+end
+always_comb begin
+	if(csr_inf.mret) prvmode_nxt = 0;
+	else if(csr_inf.ecall) prvmode_nxt = 2'b11;
+	else prvmode_nxt = prvmode;
 end
 
 always_comb begin
@@ -92,11 +97,12 @@ fetch fetch(.rst				(reset),
 			.reg_execute_pc		(reg_execute_pc),
 			.execute_valid		(execute_valid),	
 			.stall				(execute_stall || memory_stall || decode_stall),
-			.satp				(csr_regs.satp),
 			.prvmode			(prvmode),
 			.pc					(pc),
 			.mmu_fetch_ok		(mmu_fetch_ok),
-			.mmu_data			(mmu_data)
+			.mmu_data			(mmu_data),
+			.csr_regs			(csr_regs),
+			.csr_inf			(csr_inf)
 			);
 
 logic [1:0] ctrl_ALU_op;
@@ -150,7 +156,8 @@ decode decode(.clk          	(clk),
 			  .w_en				(reg_writeback_reg_w),
 			  .RF				(RF),
 			  .decode_stall		(decode_stall),
-			  .stall			(memory_stall || execute_stall));
+			  .stall			(memory_stall || execute_stall),
+			  .pc				(pc));
 
 u32 reg_execute_ins;
 logic reg_execute_mem_w,reg_execute_mem_r;
@@ -322,7 +329,7 @@ writeback writeback(
 	DifftestCSRState DifftestCSRState(
 		.clock              (clk),
 		.coreid             (0),
-		.priviledgeMode     (prvmode),
+		.priviledgeMode     (prvmode_nxt),
 		.mstatus            (csr_regs_next.mstatus),
 		.sstatus            (csr_regs_next.mstatus & 64'h800000030001e000),
 		.mepc               (csr_regs_next.mepc),

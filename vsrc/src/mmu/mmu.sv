@@ -95,7 +95,7 @@ always_ff @( posedge clk ) begin
     
 end
 always_comb begin
-    if(prvmode == 2'b11 || satp[63:60] != 4'b1000) begin
+    if(! mmu_on) begin
         init_addr = 0;
          // mmu translate needed?
         mmu_data = dresp.data;
@@ -119,31 +119,24 @@ always_comb begin
         mmu_data = dresp.data;
         init_addr = src ? memory_addr : pc;
 
-            dreq.strobe = strobe_m;
-            dreq.data = mem_store_data;
-            dreq.size = 3'b011;
-        if(!mmu_on) begin
-            dreq.addr = src ? memory_addr : pc;
-            mmu_data = 0;
+        dreq.strobe = strobe_m;
+        dreq.data = mem_store_data;
+        dreq.size = 3'b011;
+
+        if(stage == 0) dreq.addr = {8'b0 , satp[43:0], 12'b0} + {52'b0, init_addr[38:30], 3'b0}; 
+        else begin
+            dreq.addr = nxt_addr;
+        end
+        if(memory_busy) begin
+            mmu_memory_ok = src & dresp.data_ok & (stage == 2'b11);
+            mmu_data = dresp.data;
             mmu_fetch_ok = 0;
-            mmu_memory_ok = 0;
         end
         else begin
-            if(stage == 0) dreq.addr = {8'b0 , satp[43:0], 12'b0} + {52'b0, init_addr[38:30], 3'b0}; 
-            else begin
-                dreq.addr = nxt_addr;
-            end
-            if(memory_busy) begin
-                mmu_memory_ok = src & dresp.data_ok & (stage == 2'b11);
-                mmu_data = dresp.data;
-                mmu_fetch_ok = 0;
-            end
-            else begin
-                mmu_fetch_ok = dresp.data_ok & (stage == 2'b11);
-                mmu_data = dresp.data;
-                mmu_memory_ok = 0;
-            end
-        end
+            mmu_fetch_ok = dresp.data_ok & (stage == 2'b11);
+            mmu_data = dresp.data;
+            mmu_memory_ok = 0;
+         end
         
     end
 end 

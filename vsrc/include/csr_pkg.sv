@@ -81,6 +81,7 @@ package csr_pkg;
 		logic csr_w;
 		u64 t;
 		logic mret;
+		logic ecall;
 	} csr_decode;
 endpackage
 

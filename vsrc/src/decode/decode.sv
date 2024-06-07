@@ -47,7 +47,8 @@ module decode
     output u64 reg_decode_rd1,reg_decode_rd2,
     output u5 reg_decode_rd,
     output u64 reg_offset,reg_decode_pc,
-    output logic decode_stall
+    output logic decode_stall,
+    output u64 pc
 );
 
 u64 read_data_rs1,read_data_rs2,offset,csr_rd;
@@ -74,7 +75,9 @@ csr csr(
     .csr_wd         (reg_writeback_csr_data_out),
     .w_en           (w_en & csr_inf.csr_w),
     .prvmode        (prvmode),
-    .mret           (csr_inf.mret)
+    .mret           (csr_inf.mret),
+    .csr_inf	    (csr_inf),
+    .pc             (pc)
 );
 immediate_generator immediate_generator(
     .ins			(reg_fetch_ins),
@@ -277,11 +280,11 @@ always_ff@( posedge clk ) begin
             csr_inf.func3   <= reg_fetch_ins[14:12];
             csr_inf.rs1     <= reg_fetch_ins[19:15];
             csr_inf.t       <= csr_rd;
-            ctrl_branch     <= 1'b0;
+            ctrl_branch     <= reg_fetch_ins == MRET || reg_fetch_ins == ECALL;
             ctrl_mem_w      <= 1'b0;
             ctrl_mem_r      <= 1'b0;
-            csr_inf.mret    <= reg_fetch_ins == 32'b00110000001000000000000001110011;//0011000 00010 00000 000 00000 1110011
-            prvmode         <= reg_fetch_ins == 32'b00110000001000000000000001110011 ? csr_regs.mstatus.mpp : prvmode;
+            csr_inf.mret    <= reg_fetch_ins == MRET;//0011000 00010 00000 000 00000 1110011
+            csr_inf.ecall   <= reg_fetch_ins == ECALL;
         end
         default:
         begin

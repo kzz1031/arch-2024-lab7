@@ -13,6 +13,8 @@ package common;
 	parameter LINK_REG_ID = 1;
 	parameter logic[63:0] PCINIT = 64'h00000000_80000000;
     parameter REG_NUM = 32;
+    parameter MRET  = 32'b00110000001000000000000001110011;
+    parameter ECALL = 32'b00000000000000000000000001110011;
 	// typedefs
 	typedef logic[127:0] u128;
 	typedef logic[63:0] u64;
