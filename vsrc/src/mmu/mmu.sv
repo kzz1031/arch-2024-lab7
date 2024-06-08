@@ -61,7 +61,7 @@ always_ff @( posedge clk ) begin
         src <= 0;
         stage <= 0;
     end
-    if(dresp.data_ok & !tag) begin
+    if(dresp.data_ok & !mmu_on) begin
         if(src == 1) begin
             src <= 0;
             strobe_m <= 0;

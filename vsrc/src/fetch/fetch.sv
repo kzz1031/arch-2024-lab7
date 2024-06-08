@@ -13,7 +13,7 @@ module fetch
     import csr_pkg::*;(
     input logic rst,
     input logic clk,
-    input  ibus_resp_t iresp,
+    input dbus_resp_t dresp,
     input logic stall,
     input logic zero_flag,
     input u64 pc_branch,
@@ -22,7 +22,8 @@ module fetch
     input u64 reg_execute_pc,
     input logic decode_valid,
     input logic execute_valid,
-    
+    input logic writeback_valid,
+
     input logic mmu_fetch_ok,
     input u64 mmu_data,
     input csr_regs_t csr_regs,
@@ -49,21 +50,25 @@ always_ff @( posedge clk ) begin
         pc <= PCINIT;
         delay <= 0;     
     end 
-    if(delay & mmu_fetch_ok & reg_execute_pc == reg_fetch_pc) begin
-        delay <= 0;
-        // if(csr_inf.mret) begin 
-        //     pc <= csr_regs.mepc;
-        // end
-        // else if(csr_inf.ecall) begin
-        //     pc <= csr_regs.mtvec;
-        // end
-        if(op == JAL || op == JALR) pc <= pc_branch;
-        else if(zero_flag) pc <= reg_fetch_pc + reg_offset;
-    end
+    if(delay & dresp.data_ok & reg_execute_pc == reg_fetch_pc) begin
+        if(csr_inf.mret & prvmode == 0) begin 
+            pc <= csr_regs.mepc;
+            delay <= 0;
+        end
+        else if(csr_inf.ecall & prvmode == 2'b11) begin
+            pc <= csr_regs.mtvec;
+            delay <= 0;
+        end
+        else begin
+            delay <= 0;
+            if(op == JAL || op == JALR) pc <= pc_branch;
+            else if(zero_flag) pc <= reg_fetch_pc + reg_offset;
+        end
+end   
     else if( mmu_fetch_ok & (!fetch_valid) & (!stall) & (!delay)) begin 
         reg_fetch_ins <= (pc[2:0] == 0) ? mmu_data[31:0] : mmu_data[63:32];
+        pc <= pc + 4; 
         reg_fetch_pc  <= pc;    
-        pc <= pc + 4;
         fetch_valid <= 1;
     end 
     else if(fetch_valid & (!stall) & (!delay)) fetch_valid <= 0;

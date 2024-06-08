@@ -75,7 +75,6 @@ csr csr(
     .csr_wd         (reg_writeback_csr_data_out),
     .w_en           (w_en & csr_inf.csr_w),
     .prvmode        (prvmode),
-    .mret           (csr_inf.mret),
     .csr_inf	    (csr_inf),
     .pc             (pc)
 );
