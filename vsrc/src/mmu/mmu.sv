@@ -34,11 +34,15 @@ u64 init_addr,data,nxt_addr;
 logic src,tag;
 strobe_t strobe_m;
 u2 stage;
-
+logic mmu_on;
 
 always_ff @( posedge clk ) begin
+    if(rst) stage <= 0;
     if(dresp.data_ok & mmu_on) begin
-        if(stage == 0) begin
+        if(memory_busy && src == 0) begin
+            stage <= 0;
+        end
+        else if(stage == 0) begin
             stage <= 2'b01;
             nxt_addr <= {8'b0, dresp.data[53:10], 12'b0} + {52'b0, init_addr[29:21], 3'b0};
         end
@@ -59,7 +63,6 @@ end
 always_ff @( posedge clk ) begin
     if(rst) begin
         src <= 0;
-        stage <= 0;
     end
     if(dresp.data_ok & !mmu_on) begin
         if(src == 1) begin
@@ -79,13 +82,11 @@ always_ff @( posedge clk ) begin
         end
         else if(memory_busy && src == 0) begin
             src <= 1;
-            stage <= 0;
             strobe_m <= (memory_w && stage == 2'b11) ? strobe : 0;
             data <= mem_store_data;
         end
     end
 end
-logic mmu_on;
 always_ff @( posedge clk ) begin
     if(rst)  mmu_on <= 0;
     if(!(prvmode == 2'b11 || satp[63:60] != 4'b1000)) begin
@@ -101,7 +102,7 @@ always_comb begin
         mmu_data = dresp.data;
         dreq.strobe = strobe_m;
         dreq.data = mem_store_data;
-        dreq.size = 3'b011;
+        dreq.size = msize_t'({3'b011});
         dreq.addr = src ? memory_addr : pc; 
         if(memory_busy) begin
             mmu_memory_ok = src & dresp.data_ok;
@@ -121,7 +122,7 @@ always_comb begin
 
         dreq.strobe = strobe_m;
         dreq.data = mem_store_data;
-        dreq.size = 3'b011;
+        dreq.size = msize_t'({3'b011});
 
         if(stage == 0) dreq.addr = {8'b0 , satp[43:0], 12'b0} + {52'b0, init_addr[38:30], 3'b0}; 
         else begin
@@ -140,32 +141,6 @@ always_comb begin
         
     end
 end 
-// always_comb begin
-//     if(prvmode == 2'b11 || satp[63:60] != 4'b1000) begin
-//         dreq.addr = addr;
-//         mmu_data = dresp.data;
-//         if(memory_busy) begin
-//             if(memory_r) begin
-//             dreq.strobe = strobe_m;
-//             dreq.size = msize;
-//             dreq.data = 0;
-//             mmu_fetch_ok = 0; 
-//             mmu_memory_ok = dresp.data_ok;
-//             end
-//         else begin
-//             dreq.strobe = strobe_m;
-//             dreq.data = mem_store_data;
-//             dreq.size = msize;
-//             mmu_fetch_ok = 0;
-//             mmu_memory_ok = dresp.data_ok;
-//             end  
-//         end
-//         else begin
-//             dreq.strobe = 0;
-
-//         end
-//     end
-// end 
 	
 endmodule
 

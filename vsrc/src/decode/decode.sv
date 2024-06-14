@@ -47,8 +47,7 @@ module decode
     output u64 reg_decode_rd1,reg_decode_rd2,
     output u5 reg_decode_rd,
     output u64 reg_offset,reg_decode_pc,
-    output logic decode_stall,
-    output u64 pc
+    output logic decode_stall
 );
 
 u64 read_data_rs1,read_data_rs2,offset,csr_rd;
@@ -75,8 +74,7 @@ csr csr(
     .csr_wd         (reg_writeback_csr_data_out),
     .w_en           (w_en & csr_inf.csr_w),
     .prvmode        (prvmode),
-    .csr_inf	    (csr_inf),
-    .pc             (pc)
+    .csr_inf	    (csr_inf)
 );
 immediate_generator immediate_generator(
     .ins			(reg_fetch_ins),

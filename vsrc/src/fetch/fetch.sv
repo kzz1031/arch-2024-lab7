@@ -37,9 +37,6 @@ module fetch
 );
 
 logic delay,mmu_ok;
-
-// assign ireq.valid = 1;
-// assign ireq.addr = pc;
 OPC op;
 assign op = OPC'(reg_fetch_ins[6:0]);
 u64 addr; 
@@ -50,7 +47,7 @@ always_ff @( posedge clk ) begin
         pc <= PCINIT;
         delay <= 0;     
     end 
-    if(delay & dresp.data_ok & reg_execute_pc == reg_fetch_pc) begin
+    else if(delay & dresp.data_ok & reg_execute_pc == reg_fetch_pc) begin
         if(csr_inf.mret & prvmode == 0) begin 
             pc <= csr_regs.mepc;
             delay <= 0;
@@ -64,7 +61,7 @@ always_ff @( posedge clk ) begin
             if(op == JAL || op == JALR) pc <= pc_branch;
             else if(zero_flag) pc <= reg_fetch_pc + reg_offset;
         end
-end   
+    end   
     else if( mmu_fetch_ok & (!fetch_valid) & (!stall) & (!delay)) begin 
         reg_fetch_ins <= (pc[2:0] == 0) ? mmu_data[31:0] : mmu_data[63:32];
         pc <= pc + 4; 

@@ -29,11 +29,14 @@ logic 	    memory_valid,memory_stall;
 logic       execute_valid,reg_execute_zero_flag,reg_execute_sig,reg_execute_reg_w;
 logic       execute_stall;
 u64 		reg_execute_data_out,reg_execute_pc,reg_execute_rd2;
+logic       reg_execute_mem_w,reg_execute_mem_r;
+msize_t     reg_execute_msize;
 u64 		reg_execute_csr_data_out,reg_memory_csr_data_out,reg_writeback_csr_data_out;
-u64 		reg_writeback_data;
+u64 		reg_writeback_data, mem_store_data;
 u5 			reg_writeback_rd;
 logic 		writeback_valid,reg_writeback_reg_w;
 logic signed [63 : 0] reg_offset;
+strobe_t strobe;
 
 csr_regs_t csr_regs,csr_regs_next;
 csr_decode csr_inf;
@@ -41,9 +44,6 @@ logic is_csr;
 u2 prvmode, prvmode_nxt;
 u64 mmu_data;
 
-always_ff @( posedge clk ) begin
-	if(reset) prvmode <= 3;
-end
 always_comb begin
 	if(csr_inf.mret) prvmode_nxt = 0;
 	else if(csr_inf.ecall) prvmode_nxt = 2'b11;
@@ -157,12 +157,9 @@ decode decode(.clk          	(clk),
 			  .w_en				(reg_writeback_reg_w),
 			  .RF				(RF),
 			  .decode_stall		(decode_stall),
-			  .stall			(memory_stall || execute_stall),
-			  .pc				(pc));
+			  .stall			(memory_stall || execute_stall));
 
 u32 reg_execute_ins;
-logic reg_execute_mem_w,reg_execute_mem_r;
-msize_t reg_execute_msize;
 u5 reg_execute_rd;
 
 execute	execute(.clk					(clk),
@@ -202,9 +199,8 @@ execute	execute(.clk					(clk),
 
 logic 	reg_memory_mem_r,reg_memory_reg_w,reg_memory_mem_w;
 u64   	reg_memory_data_out;
-u64 	reg_memory_ALU_data_out,reg_memory_pc,reg_memory_addr, mem_store_data;
+u64 	reg_memory_ALU_data_out,reg_memory_pc,reg_memory_addr;
 u32 	reg_memory_ins;
-strobe_t strobe;
 u5		reg_memory_rd;
 
 memory memory(

@@ -16,7 +16,6 @@ module csr
     input u64 csr_wd,
     input logic w_en,
     input csr_decode csr_inf,
-    output u64 pc,
     output csr_regs_t   csr_regs_next,
     output csr_regs_t   csr_regs,
     output u2  prvmode,
@@ -28,6 +27,7 @@ module csr
             csr_regs <= '0;
 			csr_regs.mcause[1] <= 1'b1;
 			csr_regs.mepc[31] <= 1'b1;
+			prvmode <= 2'b11;
         end
         if(w_en) begin
             if(csr_inf.mret) begin
@@ -63,17 +63,35 @@ module csr
         end
     end
     always_comb begin
-        if(csr_inf.mret) begin
-            csr_regs_next.mstatus.mie = csr_regs.mstatus.mpie;
-            csr_regs_next.mstatus.mpie = 1;
-            csr_regs_next.mstatus.mpp = 0;
-        end
-        else if(csr_inf.ecall) begin
-            csr_regs_next.mstatus.mpp = prvmode;
-            csr_regs_next.mstatus.mie = 0;
-            csr_regs_next.mepc = csr_wd;
-            csr_regs_next.mcause = {60'b0, 4'b1000};
-            csr_regs_next.mstatus.mpie = csr_regs.mstatus.mie;
+        csr_regs_next = csr_regs;
+        if(w_en) begin
+            if(csr_inf.mret) begin
+                csr_regs_next.mstatus.mie = csr_regs.mstatus.mpie;
+                csr_regs_next.mstatus.mpie = 1;
+                csr_regs_next.mstatus.mpp = 0;
+            end
+            else if(csr_inf.ecall) begin
+                csr_regs_next.mstatus.mpp = prvmode;
+                csr_regs_next.mstatus.mie = 0;
+                csr_regs_next.mepc = csr_wd;
+                csr_regs_next.mcause = {60'b0, 4'b1000};
+                csr_regs_next.mstatus.mpie = csr_regs.mstatus.mie;
+            end
+            else unique case(csr)
+                CSR_MIE: csr_regs_next.mie = csr_wd;
+                CSR_MIP: csr_regs_next.mip = csr_wd;
+                CSR_MTVEC: csr_regs_next.mtvec = csr_wd;
+                CSR_MSTATUS: csr_regs_next.mstatus = csr_wd;
+                CSR_MSCRATCH: csr_regs_next.mscratch = csr_wd;
+                CSR_MEPC: csr_regs_next.mepc = csr_wd;
+                CSR_MCAUSE: csr_regs_next.mcause = csr_wd;
+                CSR_MCYCLE: csr_regs_next.mcycle = csr_wd;
+                CSR_MTVAL: csr_regs_next.mtval = csr_wd;
+                CSR_SATP: csr_regs_next.satp = csr_wd;
+                CSR_MHARTID: csr_regs_next.mhartid = csr_wd;
+                default: begin
+                end 
+            endcase
         end
         else csr_regs_next = csr_regs;
 
@@ -94,32 +112,5 @@ module csr
 			end
         endcase 
     end
-    u12 tag; //
-    always_comb begin 
-        tag = CSR_MCAUSE;
-    end
-    
-    always_comb begin
-        if(w_en) begin
-            tag = {11'b0,1'b1};
-            unique case(csr)
-                CSR_MIE: csr_regs_next.mie = csr_wd;
-                CSR_MIP: csr_regs_next.mip = csr_wd;
-                CSR_MTVEC: csr_regs_next.mtvec = csr_wd;
-                CSR_MSTATUS: csr_regs_next.mstatus = csr_wd;
-                CSR_MSCRATCH: csr_regs_next.mscratch = csr_wd;
-                CSR_MEPC: csr_regs_next.mepc = csr_wd;
-                CSR_MCAUSE: csr_regs_next.mcause = csr_wd;
-                CSR_MCYCLE: csr_regs_next.mcycle = csr_wd;
-                CSR_MTVAL: csr_regs_next.mtval = csr_wd;
-                CSR_SATP: csr_regs_next.satp = csr_wd;
-                CSR_MHARTID: csr_regs_next.mhartid = csr_wd;
-                default: begin
-                end 
-            endcase
-        end
-        else tag = {10'b0,2'b11};
-        
-end
 endmodule
 `endif
